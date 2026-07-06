@@ -1,0 +1,204 @@
+/* Dashboard.css */
+
+/* Container and Layout Limits */
+.dash-container {
+  min-height: 100vh;
+  background-color: #f1f5f9; /* Subtle gray background for the whole page */
+  padding: 2rem 1rem;
+}
+
+/* Form and Search Interaction */
+.search-form {
+  margin-bottom: 2.5rem;
+}
+
+.search-input {
+  transition: all 0.2s ease-in-out;
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: #1e40af !important;
+  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.15);
+  background-color: #fff;
+}
+
+.search-btn {
+  transition: all 0.2s ease-in-out;
+  font-weight: 600;
+}
+
+.search-btn:hover:not(:disabled) {
+  background-color: #1d4ed8 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.search-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.search-btn:disabled {
+  background-color: #94a3b8 !important;
+  cursor: not-allowed;
+}
+
+/* Error Messages */
+.error-msg {
+  background-color: #fef2f2;
+  border: 1px solid #fee2e2;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  max-width: 400px;
+  margin: 0 auto 1.5rem auto;
+  font-weight: 500;
+}
+
+/* Results Content Wrapper */
+.results-card {
+  animation: fadeIn 0.4s ease-out-forward;
+}
+
+/* Modern Tag Layout (Bottom of Dashboard) */
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style-type: none;
+  padding: 0;
+  margin-top: 1rem;
+}
+
+.tag-item {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.tag-item:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+
+.tag-item strong {
+  color: #1e40af;
+}
+
+/* Subtle entrance animation for when data loads */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- AI Chat Interface Styles --- */
+.chat-container {
+  margin-top: 3rem;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+}
+
+.chat-title {
+  background-color: #f8fafc;
+  margin: 0;
+  padding: 1rem 1.5rem;
+  font-size: 1.1rem;
+  color: #0f172a;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.chat-history {
+  padding: 1.5rem;
+  max-height: 400px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background-color: #fafafa;
+}
+
+.chat-empty {
+  text-align: center;
+  color: #94a3b8;
+  font-style: italic;
+  margin: 2rem 0;
+}
+
+.chat-bubble {
+  padding: 0.85rem 1.25rem;
+  border-radius: 8px;
+  max-width: 85%;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.chat-user {
+  align-self: flex-end;
+  background-color: #1e40af;
+  color: white;
+  border-bottom-right-radius: 0;
+}
+
+.chat-ai {
+  align-self: flex-start;
+  background-color: #e0e7ff;
+  color: #1e3a8a;
+  border-bottom-left-radius: 0;
+}
+
+.chat-input-form {
+  display: flex;
+  padding: 1rem;
+  background-color: white;
+  border-top: 1px solid #e2e8f0;
+  gap: 0.5rem;
+}
+
+.chat-input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  outline: none;
+  font-size: 0.95rem;
+}
+
+.chat-input:focus {
+  border-color: #1e40af;
+}
+
+.chat-send-btn {
+  padding: 0 1.5rem;
+  background-color: #1e40af;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.chat-send-btn:hover:not(:disabled) {
+  background-color: #1d4ed8;
+}
+
+.chat-send-btn:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+}
