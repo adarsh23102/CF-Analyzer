@@ -6,121 +6,125 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-app.get('/api/user/:handle', async (request, response) => {
+// Dynamic environment variables for production, with local fallbacks
+const port = process.env.PORT || 3000;
+const aiUrl = process.env.FASTAPI_URL || 'http://127.0.0.1:8000';
+
+app.get('/api/user/:handle', async (req, res) => {
     try {
-        const targetHandle = request.params.handle;
-        console.log(`Processing data for: ${targetHandle}`);
+        const h = req.params.handle;
+        console.log(`Processing data for: ${h}`);
         
         // 1. Fetch Codeforces Data
-        const codeforcesUrl = `https://codeforces.com/api/user.status?handle=${targetHandle}`;
-        const codeforcesResponse = await fetch(codeforcesUrl);
-        const codeforcesData = await codeforcesResponse.json();
+        const cfUrl = `https://codeforces.com/api/user.status?handle=${h}`;
+        const cfRes = await fetch(cfUrl);
+        const cfData = await cfRes.json();
         
-        if (codeforcesData.status !== "OK") {
-            return response.status(400).json({ error: codeforcesData.comment || "User not found" });
+        if (cfData.status !== "OK") {
+            return res.status(400).json({ error: cfData.comment || "User not found" });
         }
 
-        const submissions = codeforcesData.result;
-        let totalSubmissions = submissions.length;
-        let acceptedCount = 0;
-        let ratingSum = 0;
-        let ratedProblemCount = 0;
+        const subs = cfData.result;
+        let totSubs = subs.length;
+        let acCount = 0;
+        let rSum = 0;
+        let rCount = 0;
         
-        const tagCounts = {};      // For successful solves
-        const dangerTagCounts = {}; // NEW: For tracking wrong/failed attempts
+        const tags = {};      
+        const dTags = {}; 
 
-        submissions.forEach(submission => {
-            const tags = submission.problem.tags || [];
+        subs.forEach(s => {
+            const t = s.problem.tags || [];
             
-            if (submission.verdict === "OK") {
+            if (s.verdict === "OK") {
                 // Handle Successful Solves
-                acceptedCount++;
-                if (submission.problem.rating) {
-                    ratingSum += submission.problem.rating;
-                    ratedProblemCount++;
+                acCount++;
+                if (s.problem.rating) {
+                    rSum += s.problem.rating;
+                    rCount++;
                 }
-                tags.forEach(tag => {
-                    tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+                t.forEach(tag => {
+                    tags[tag] = (tags[tag] || 0) + 1;
                 });
-            } else if (submission.verdict && submission.verdict !== "OK") {
-                // NEW: Handle Failed Submissions (Wrong Answer, TLE, RE, etc.)
-                tags.forEach(tag => {
-                    dangerTagCounts[tag] = (dangerTagCounts[tag] || 0) + 1;
+            } else if (s.verdict && s.verdict !== "OK") {
+                // Handle Failed Submissions
+                t.forEach(tag => {
+                    dTags[tag] = (dTags[tag] || 0) + 1;
                 });
             }
         });
 
-        const comfortZoneRating = ratedProblemCount > 0 ? Math.round(ratingSum / ratedProblemCount) : 0;
-        const accuracyRate = totalSubmissions > 0 ? ((acceptedCount / totalSubmissions) * 100).toFixed(2) : 0;
+        const czRating = rCount > 0 ? Math.round(rSum / rCount) : 0;
+        const acc = totSubs > 0 ? ((acCount / totSubs) * 100).toFixed(2) : 0;
         
-        // Sort and get Top 5 successful tags
-        const topTags = Object.entries(tagCounts)
-            .map(([tagName, count]) => ({ name: tagName, count: count }))
+        const top = Object.entries(tags)
+            .map(([n, c]) => ({ name: n, count: c }))
             .sort((a, b) => b.count - a.count)
             .slice(0, 5);
 
-        // NEW: Sort and get Top 3 highest penalty/danger tags
-        const dangerTags = Object.entries(dangerTagCounts)
-            .map(([tagName, count]) => ({ name: tagName, wrong_count: count }))
+        const danger = Object.entries(dTags)
+            .map(([n, c]) => ({ name: n, wrong_count: c }))
             .sort((a, b) => b.wrong_count - a.wrong_count)
             .slice(0, 3);
 
-        // 2. Fetch from local AI Engine (FastAPI)
-        const aiEngineUrl = `http://127.0.0.1:8000/recommend/${targetHandle}`;
-        const aiResponse = await fetch(aiEngineUrl);
+        // 2. Fetch from local AI Engine (FastAPI) using env variable
+        const aiReqUrl = `${aiUrl}/recommend/${h}`;
+        const aiRes = await fetch(aiReqUrl);
         
-        if (!aiResponse.ok) {
-            return response.status(500).json({ error: "AI backend error" });
+        if (!aiRes.ok) {
+            return res.status(500).json({ error: "AI backend error" });
         }
         
-        const aiCoachData = await aiResponse.json();
+        const aiData = await aiRes.json();
 
         // 3. Send combined data to React frontend
-        response.json({
-            handle: targetHandle,
+        res.json({
+            handle: h,
             metrics: {
-                totalSubmissions: totalSubmissions,
-                totalSolved: acceptedCount,
-                accuracyRate: accuracyRate + "%",
-                comfortZoneRating: comfortZoneRating,
-                topTags: topTags,
-                dangerTags: dangerTags // NEW: Transmitted to frontend
+                totalSubmissions: totSubs,
+                totalSolved: acCount,
+                accuracyRate: acc + "%",
+                comfortZoneRating: czRating,
+                topTags: top,
+                dangerTags: danger 
             },
-            ai_coach: aiCoachData 
+            ai_coach: aiData 
         });
         
     } catch (error) {
         console.error("Server Error:", error);
-        response.status(500).json({ error: "Failed to process request" });
+        res.status(500).json({ error: "Failed to process request" });
     }
 });
-// NEW: Chat Endpoint Proxy
-app.post('/api/chat', async (request, response) => {
+
+// Chat Endpoint Proxy
+app.post('/api/chat', async (req, res) => {
     try {
-        const { handle, message } = request.body;
+        const { handle, message } = req.body;
         
-        // Forward the message to the Python FastAPI LangGraph Engine
-        const aiEngineUrl = `http://127.0.0.1:8000/chat`;
+        // Forward using env variable
+        const aiReqUrl = `${aiUrl}/chat`;
         
-        const fetchResponse = await fetch(aiEngineUrl, {
+        const fetchRes = await fetch(aiReqUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ handle: handle, msg: message })
         });
 
-        if (!fetchResponse.ok) {
-            return response.status(500).json({ error: "AI chat engine failed to respond." });
+        if (!fetchRes.ok) {
+            return res.status(500).json({ error: "AI chat engine failed to respond." });
         }
 
-        const chatData = await fetchResponse.json();
-        response.json(chatData);
+        const chatData = await fetchRes.json();
+        res.json(chatData);
 
     } catch (error) {
         console.error("Chat Error:", error);
-        response.status(500).json({ error: "Failed to process chat request" });
+        res.status(500).json({ error: "Failed to process chat request" });
     }
 });
 
-app.listen(3000, () => {
-    console.log("Server running on http://localhost:3000");
+// Dynamic port assignment for Render
+app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
 });
