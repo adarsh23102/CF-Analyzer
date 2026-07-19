@@ -15,6 +15,7 @@ function Dashboard() {
   const [dashboardData, setDashboardData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || "https://cf-analyzer-backend.onrender.com";
 
   async function fetchUserStats(event) {
     event.preventDefault(); 
@@ -25,7 +26,7 @@ function Dashboard() {
     setDashboardData(null);
 
     try {
-      const response = await fetch(`http://localhost:3000/api/user/${targetHandle}`);
+      const response = await fetch(`${backendUrl}/api/user/${targetHandle}`);
       const responseData = await response.json();
 
       if (!response.ok) {
@@ -52,7 +53,7 @@ function Dashboard() {
     setIsChatting(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/chat', {
+      const response = await fetch(`${backendUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ handle: dashboardData.handle, message: userText })
