@@ -110,6 +110,11 @@ gb.add_edge("tools", "bot")
 
 agent_app = gb.compile()
 
+class RecommendReq(BaseModel):
+    handle: str
+    current_rating: int
+    submissions: list
+
 # ==========================================
 # 3. EXISTING ML PIPELINE & ENDPOINTS
 # ==========================================
@@ -168,18 +173,54 @@ def fetch_live_user(handle: str):
 
     return pd.Series(vector), int(current_rating)
 
-@app.get("/recommend/{handle}")
-def get_recommendations(handle: str):
+def process_live_user(handle: str, current_rating: int, submissions: list):
     """
-    API Endpoint: Serves cached data if available, or fetches live data on the fly.
+    Processes submission history provided by the Node backend directly 
+    without hitting the Codeforces API.
+    """
+    print(f"Processing data directly for: {handle}")
+    vector = {col: 0 for col in MODEL_FEATURES}
+    r_sum = {}
+    r_cnt = {}
+
+    for sub in submissions:
+        verdict = sub.get('verdict')
+        prob = sub.get('problem', {})
+        tags = prob.get('tags', [])
+        p_rating = prob.get('rating', 0)
+
+        for t in tags:
+            col_slv = f"tag_{t}_solved"
+            col_fail = f"tag_{t}_failed"
+            
+            if col_slv in vector:
+                if verdict == 'OK':
+                    vector[col_slv] += 1
+                    if p_rating > 0:
+                        r_sum[t] = r_sum.get(t, 0) + p_rating
+                        r_cnt[t] = r_cnt.get(t, 0) + 1
+                else:
+                    vector[col_fail] += 1
+
+    for t, cnt in r_cnt.items():
+        if cnt > 0:
+            vector[f"tag_{t}_avg_rating"] = r_sum[t] // cnt
+
+    return pd.Series(vector)
+
+@app.post("/recommend")
+def get_recommendations(req: RecommendReq):
+    """
+    API Endpoint: Serves cached data if available, or processes provided live data on the fly.
     """
     # Check if we have them in our offline database first (it's faster)
-    if handle in feature_df.index:
-        current_rating = int(original_df.loc[handle, 'current_rating'])
-        user_vector = feature_df.loc[handle].copy()
+    if req.handle in feature_df.index:
+        current_rating = int(original_df.loc[req.handle, 'current_rating'])
+        user_vector = feature_df.loc[req.handle].copy()
     else:
-        # User not found locally -> Trigger the live fetch!
-        user_vector, current_rating = fetch_live_user(handle)
+        # Process the submissions passed from Node.js
+        user_vector = process_live_user(req.handle, req.current_rating, req.submissions)
+        current_rating = req.current_rating
 
     # 1. Base Prediction
     base_prediction = model.predict([user_vector])[0]
@@ -219,9 +260,9 @@ def get_recommendations(handle: str):
         })
 
     return {
-        "handle": handle,
+        "handle": req.handle,
         "current_rating": current_rating,
-        "data_source": "cached" if handle in feature_df.index else "live_api",
+        "data_source": "cached" if req.handle in feature_df.index else "live_api",
         "recommendations": response
     }
 

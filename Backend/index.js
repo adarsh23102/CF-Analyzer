@@ -15,14 +15,23 @@ app.get('/api/user/:handle', async (req, res) => {
         const h = req.params.handle;
         console.log(`Processing data for: ${h}`);
         
-        // 1. Fetch Codeforces Data
+        // 1. Fetch Codeforces Data concurrently
         const cfUrl = `https://codeforces.com/api/user.status?handle=${h}`;
-        const cfRes = await fetch(cfUrl);
-        const cfData = await cfRes.json();
+        const infoUrl = `https://codeforces.com/api/user.info?handles=${h}`;
         
-        if (cfData.status !== "OK") {
-            return res.status(400).json({ error: cfData.comment || "User not found" });
+        const [cfRes, infoRes] = await Promise.all([
+            fetch(cfUrl),
+            fetch(infoUrl)
+        ]);
+        
+        const cfData = await cfRes.json();
+        const infoData = await infoRes.json();
+        
+        if (cfData.status !== "OK" || infoData.status !== "OK") {
+            return res.status(400).json({ error: cfData.comment || infoData.comment || "User not found" });
         }
+        
+        const currentRating = infoData.result[0].rating || 800;
 
         const subs = cfData.result;
         let totSubs = subs.length;
@@ -67,9 +76,17 @@ app.get('/api/user/:handle', async (req, res) => {
             .sort((a, b) => b.wrong_count - a.wrong_count)
             .slice(0, 3);
 
-        // 2. Fetch from local AI Engine (FastAPI) using env variable
-        const aiReqUrl = `${aiUrl}/recommend/${h}`;
-        const aiRes = await fetch(aiReqUrl);
+        // 2. Fetch from local AI Engine (FastAPI) using env variable (via POST to avoid duplicate CF calls)
+        const aiReqUrl = `${aiUrl}/recommend`;
+        const aiRes = await fetch(aiReqUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                handle: h, 
+                current_rating: currentRating,
+                submissions: subs 
+            })
+        });
         
         if (!aiRes.ok) {
             return res.status(500).json({ error: "AI backend error" });
