@@ -173,6 +173,23 @@ def fetch_live_user(handle: str):
 
     return pd.Series(vector), int(current_rating)
 
+def fetch_live_user(handle: str):
+    """
+    Used by the LangGraph chat tool to fetch data for users not in the offline database.
+    """
+    info_resp = requests.get(f"https://codeforces.com/api/user.info?handles={handle}").json()
+    if info_resp.get('status') != 'OK':
+        raise HTTPException(status_code=404, detail="User not found on Codeforces.")
+    
+    current_rating = info_resp['result'][0].get('rating', 800)
+    
+    subs_resp = requests.get(f"https://codeforces.com/api/user.status?handle={handle}").json()
+    if subs_resp.get('status') != 'OK':
+        raise HTTPException(status_code=500, detail="Failed to fetch submission history.")
+        
+    vector = process_live_user(handle, int(current_rating), subs_resp['result'])
+    return vector, int(current_rating)
+
 def process_live_user(handle: str, current_rating: int, submissions: list):
     """
     Processes submission history provided by the Node backend directly 
